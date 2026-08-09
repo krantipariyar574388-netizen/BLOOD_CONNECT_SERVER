@@ -6,6 +6,7 @@ import { cathAsync } from "../utils/catchAsync.util";
 import { sendResponse } from "../utils/sendResponse.util";
 import { deleteFileFromCloudinary, upload } from "../utils/cloudinary.util";
 import { AuthRequest } from "../middlewares/auth.middleware";
+import { User } from "../models/user.model";
 
 export const createBloodRequest = cathAsync(
   async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -206,6 +207,101 @@ export const deleteBloodRequest = cathAsync(
       success: true,
       message: "Blood request deleted successfully!",
       data: null,
+    });
+  }
+);
+
+export const fulfillBloodRequest = cathAsync(
+  async(req : AuthRequest, res : Response, next : NextFunction) =>{
+    const { id } = req.params;
+    const donorId = req.user?._id;
+
+    if (!donorId) throw new AppError("Unauthorized", 401);
+
+    const request = await BloodRequest.findById(id);
+
+    if(!request) {
+      throw new AppError ("Blood request not found", 404);
+    }
+
+    if (request.status !== RequestStatus.PENDING) {
+      throw new AppError(`This is already ${request.status.toLowerCase()}, cannot fulfill`, 400);
+    }
+
+    if(request.requester.toString() === donorId) {
+      throw new AppError("You cannot fulfill your own blood request", 400);
+    }
+
+    request.status = RequestStatus.FULFILLED;
+    request.fulfilledBy = donorId as any;
+    await request.save();
+
+    // donor ko lastDonationDate update garne
+    await User.findByIdAndUpdate(donorId, {
+      lastDonationDate: new Date(),
+    });
+
+    sendResponse(res, {
+      statusCode : 200,
+      success : true,
+      message : "Blood request fulfilled successfully! Thank you for donating.",
+      data : request,
+    });
+  }
+);
+
+export const getMyRequests = cathAsync(
+  async(req : AuthRequest, res : Response, next : NextFunction) => {
+    const requesterId = req.user?._id;
+
+    if(!requesterId) throw new AppError("Unauthorized", 401);
+
+    const requests = await BloodRequest.find({ requester : requesterId })
+    .populate("fulfilledBy", "name email phone")
+    .sort({ createdAt : -1 });
+
+    sendResponse(res, {
+      statusCode : 200,
+      success : true,
+      message : requests.length > 0
+      ? "Your blood requests fetched successfully!"
+      : "You have not created any blood requests yet",
+      data : requests,
+    });
+  }
+);
+
+export const cancelBloodRequest = cathAsync(
+  async(req : AuthRequest, res : Response, next : NextFunction) => {
+    const { id } = req.params;
+    const userId = req.user?._id;
+
+    const request = await BloodRequest.findById(id);
+
+    if(!request) {
+      throw new AppError("Blood request not found", 404);
+    }
+    
+    if(request.requester.toString() !== userId) {
+      throw new AppError("You can only cancel your own blood requests", 403);
+    }
+    
+    if(request.status === RequestStatus.FULFILLED) {
+      throw new AppError("Cannot cancel a request that has already been fulfilded", 400);
+    }
+
+    if(request.status === RequestStatus.CANCELLED) {
+      throw new AppError("This request is already cancelled", 400);
+    }
+
+    request.status = RequestStatus.CANCELLED;
+    await request.save();
+
+    sendResponse(res, {
+      statusCode : 200,
+      success : true,
+      message : "Blood request cancelled successfully!",
+      data : request,
     });
   }
 );
