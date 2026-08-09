@@ -1,12 +1,13 @@
 import { Response, NextFunction } from "express";
 import { BloodRequest } from "../models/bloodRequest.model";
-import { RequestUrgency, RequestStatus } from "../@types/enum.types";
+import { RequestUrgency, RequestStatus, NotificationType } from "../@types/enum.types";
 import { AppError } from "../utils/customError.util";
 import { cathAsync } from "../utils/catchAsync.util";
 import { sendResponse } from "../utils/sendResponse.util";
 import { deleteFileFromCloudinary, upload } from "../utils/cloudinary.util";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { User } from "../models/user.model";
+import { createNotification, notifyMatchingDonors } from "../utils/notification.util";
 
 export const createBloodRequest = cathAsync(
   async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -78,6 +79,14 @@ export const createBloodRequest = cathAsync(
     }
 
     await newRequest.save();
+
+    notifyMatchingDonors({
+      bloodGroup : newRequest.bloodGroup,
+      district : newRequest.district,
+      message : `Urgent : ${newRequest.bloodGroup} blood needed at ${newRequest.hospital},${newRequest.district}`,
+      bloodRequestId : newRequest._id as any,
+      excludeUserId : requester,
+    });
 
     sendResponse(res, {
       statusCode: 201,
@@ -235,6 +244,13 @@ export const fulfillBloodRequest = cathAsync(
     request.status = RequestStatus.FULFILLED;
     request.fulfilledBy = donorId as any;
     await request.save();
+
+    createNotification({
+      recipient : request.requester,
+      type : NotificationType.REQUEST_FULFILLED,
+      message : `Great news! Your blood request for ${request.patient} has been fulfilled.`,
+      bloodRequest : request._id as any,
+    });
 
     // donor ko lastDonationDate update garne
     await User.findByIdAndUpdate(donorId, {

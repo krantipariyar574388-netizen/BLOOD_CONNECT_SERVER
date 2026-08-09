@@ -27,3 +27,9 @@ export enum UserRole {
   REQUESTER = 'requester',
   ADMIN = 'admin',
 }
+
+export enum NotificationType {
+  NEW_REQUEST = "new_request",
+  REQUEST_FULFILLED = "request_fulfilled",
+  REQUEST_CANCELLED = "request_cancelled",
+}

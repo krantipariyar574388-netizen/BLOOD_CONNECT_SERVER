@@ -5,6 +5,7 @@ import userRoutes from './routes/user.route';
 import { AppError } from "./utils/customError.util";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
+import notificationRoutes from './routes/notification.route';
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.get("/",(req : Request, res : Response) => {
 
 app.use('/bloodrequests', bloodRequestRoutes);
 app.use('/users', userRoutes);
+app.use('/notifications', notificationRoutes);
 
 app.use((req, res, next) => {
     const message = `Can not ${req.method} on ${req.path}`;
