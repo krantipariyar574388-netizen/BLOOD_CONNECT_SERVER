@@ -28,3 +28,38 @@ export const sendResetPasswordEmail = async (to : string, resetUrl : string) => 
         throw new Error("Failed to send reset email");
     }
 };
+
+export const sendUrgentRequestEmail = async(
+    to : string,
+    data : {
+        patientName : string;
+        bloodGroup : string;
+        hospital : string;
+        district : string;
+        phone : string;
+        unitsNeeded : number;
+    }
+) => {
+    try {
+        await transporter.sendMail({
+            from : `"Blood Connect" <${ENV_CONFIG.SMTP_USER}>`,
+            to,
+            subject : `URGENT : ${data.bloodGroup} Blood Needed Immediately`,
+            html : `
+            <h2 style="color : #d32f2f;">Critical Blood Request</h2>
+            <p>A patient urgently needs <strong>${data.bloodGroup}</strong> blood.</p>
+            <table style="border-collapse : collapse; width : 100%;">
+            <tr><td><strong>Patient : </strong></td><td>${data.patientName}</td></tr>
+            <tr><td><strong>Blood Group : </strong></td><td>${data.bloodGroup}</td></tr>
+            <tr><td><strong>Unites Needed : </strong></td><td>${data.unitsNeeded}</td></tr>
+            <tr><td><strong>Hospital : </strong></td><td>${data.hospital}</td></tr>
+            <tr><td><strong>District : </strong></td><td>${data.district}</td></tr>
+            <tr><td><strong>Contact : </strong></td><td>${data.phone}</td></tr>
+            </table>
+            <p>If you are available to donate, please open the Blood Conect app to respond.</P>
+            <p style="color : #888; font-size: 12px;">If you're not currently available, you can update your availability status in the app.`,
+        });
+    } catch (error) {
+        console.log("Failed to send urgent request email : ", error);
+    }
+};

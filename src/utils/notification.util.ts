@@ -1,8 +1,8 @@
 import { Notification  } from "../models/notification.model";
-import { NotificationType } from "../@types/enum.types";
+import { UserRole, BloodGroup, NotificationType, RequestUrgency } from "../@types/enum.types";
 import { Types } from "mongoose";
-import { UserRole, BloodGroup } from "../@types/enum.types";
 import  { User }  from "../models/user.model";
+import { sendUrgentRequestEmail } from "./email.util";
 
 interface CreateNotificationInput {
     recipient : Types.ObjectId | string;
@@ -35,12 +35,21 @@ export const notifyMatchingDonors = async ({
     message,
     bloodRequestId,
     excludeUserId,
+    urgency,
+    requestDetails,
 } : {
     bloodGroup : BloodGroup;
     district : string;
     message : string;
     bloodRequestId : Types.ObjectId | string;
     excludeUserId? : Types.ObjectId | string;
+    urgency?: RequestUrgency;
+    requestDetails?: {
+        patientName : string;
+        hospital : string;
+        phone : string;
+        unitsNeeded : number;
+    };
 }) => {
     const matchingDonors = await User.find({
         role : UserRole.DONOR,
@@ -48,7 +57,7 @@ export const notifyMatchingDonors = async ({
         bloodGroup,
         district : new RegExp(district.trim(), "i"),
         ...(excludeUserId ? { _id : {$ne: excludeUserId}} : {}),
-    }).select("_id");
+    }).select("_id email");
 
     const notifications = matchingDonors.map((donor : { _id : Types.ObjectId }) => ({
         recipient : donor._id,
@@ -59,5 +68,18 @@ export const notifyMatchingDonors = async ({
 
     if(notifications.length > 0) {
         await Notification.insertMany(notifications);
+    }
+
+    if(urgency === RequestUrgency.CRITICAL && requestDetails) {
+        for(const donor of matchingDonors as { _id : Types.ObjectId; email : string }[]) {
+            sendUrgentRequestEmail(donor.email, {
+                patientName : requestDetails.patientName,
+                bloodGroup,
+                hospital : requestDetails.hospital,
+                district,
+                phone : requestDetails.phone,
+                unitsNeeded : requestDetails.unitsNeeded,
+            });
+        }
     }
 };

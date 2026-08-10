@@ -86,6 +86,13 @@ export const createBloodRequest = cathAsync(
       message : `Urgent : ${newRequest.bloodGroup} blood needed at ${newRequest.hospital},${newRequest.district}`,
       bloodRequestId : newRequest._id as any,
       excludeUserId : requester,
+      urgency : newRequest.urgency,
+      requestDetails : {
+        patientName : newRequest.patient,
+        hospital : newRequest.hospital,
+        phone : newRequest.phone,
+        unitsNeeded : newRequest.units,
+      },
     });
 
     sendResponse(res, {
