@@ -9,7 +9,7 @@ import { generateJwtToken } from "../utils/jwt.util";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { generateResetToken, hashToken } from "../utils/token.util";
 import ENV_CONFIG from "../config/env.config";
-import { sendResetPasswordEmail } from "../utils/email.util";
+import { getPaginationMetadata, getPeginationParams } from "../utils/pagination.util";
 
 export const register = cathAsync(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -124,6 +124,7 @@ export const login = cathAsync(
 export const getEligibleDonors = cathAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { bloodGroup, district } = req.query;
+    const { currentPage, limit, skip } = getPeginationParams(req.params);
 
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
@@ -146,14 +147,22 @@ export const getEligibleDonors = cathAsync(
       filter.district = new RegExp(String(district).trim(), "i");
     }
 
-    const donors = await User.find(filter).select("-password");
+    const totalCount = await User.countDocuments(filter);
+
+    const donors = await User.find(filter)
+    .select("-password")
+    .skip(skip)
+    .limit(limit);
 
     sendResponse(res, {
       statusCode: 200,
       message: donors.length > 0 
         ? "Eligible donors fetched successfully" 
         : "No eligible donors found matching your criteria",
-      data: donors,
+      data: {
+        donors,
+      pagination : getPaginationMetadata(totalCount, limit, currentPage),
+    },
     });
   }
 );

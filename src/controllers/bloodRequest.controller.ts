@@ -8,6 +8,8 @@ import { deleteFileFromCloudinary, upload } from "../utils/cloudinary.util";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { User } from "../models/user.model";
 import { createNotification, notifyMatchingDonors } from "../utils/notification.util";
+import { getPaginationMetadata } from "../utils/pagination.util";
+import { ParsedQs } from "qs";
 
 export const createBloodRequest = cathAsync(
   async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -107,6 +109,7 @@ export const createBloodRequest = cathAsync(
 export const getAllBloodRequests = cathAsync(
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     const { bloodGroup, district, status, urgency } = req.query;
+    const { currentPage, limit, skip } = getPaginationParams(req.query);
 
     let filter: any = {};
 
@@ -128,9 +131,13 @@ export const getAllBloodRequests = cathAsync(
       filter.urgency = urgency;
     }
 
+    const totalCount = await BloodRequest.countDocuments(filter);
+
     const requests = await BloodRequest.find(filter)
       .populate("requester", "name email phone")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     sendResponse(res, {
       statusCode: 200,
@@ -138,7 +145,10 @@ export const getAllBloodRequests = cathAsync(
       message: requests.length > 0
         ? "Blood requests fetched successfully"
         : "No blood requests found",
-      data: requests,
+      data: {
+        requests,
+        pagination : getPaginationMetadata(totalCount, limit, currentPage),
+      },
     });
   }
 );
@@ -328,3 +338,11 @@ export const cancelBloodRequest = cathAsync(
     });
   }
 );
+
+function getPaginationParams(query: ParsedQs) {
+  const currentPage = Math.max(1, Number(query.page) || 1);
+  const limit = Math.max(1, Number(query.limit) || 10);
+  const skip = (currentPage - 1) * limit;
+
+  return { currentPage, limit, skip };
+}
