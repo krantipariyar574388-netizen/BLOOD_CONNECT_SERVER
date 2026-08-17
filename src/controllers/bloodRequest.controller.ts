@@ -111,7 +111,14 @@ export const getAllBloodRequests = cathAsync(
     const { bloodGroup, district, status, urgency } = req.query;
     const { currentPage, limit, skip } = getPaginationParams(req.query);
 
-    let filter: any = {};
+    const filter : Record<string, any> = {};
+    const { query } = req.query;
+     if (query) {
+      filter.district = {
+        $regex : query,
+        $options : "i",
+      };
+     }
 
     if (bloodGroup) {
       filter.bloodGroup = String(bloodGroup).trim().toUpperCase();

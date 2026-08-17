@@ -10,6 +10,7 @@ import { AuthRequest } from "../middlewares/auth.middleware";
 import { generateResetToken, hashToken } from "../utils/token.util";
 import ENV_CONFIG from "../config/env.config";
 import { getPaginationMetadata, getPeginationParams } from "../utils/pagination.util";
+import { sendResetPasswordEmail } from "../utils/email.util";
 
 export const register = cathAsync(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -295,9 +296,9 @@ export const forgotPassword = cathAsync(
     user.resetPasswordExpiry = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
 
-    console.log("🔑 RAW RESET TOKEN:", rawToken);
+    // console.log("🔑 RAW RESET TOKEN:", rawToken);
     const resetUrl = `${ENV_CONFIG.FRONTEND_URL}/reset-password/${rawToken}`;
-    // await sendResetPasswordEmail(user.email, resetUrl);
+    await sendResetPasswordEmail(user.email, resetUrl);
 
 
     sendResponse(res, {
