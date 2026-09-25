@@ -3,7 +3,7 @@ import { BloodGroup, UserRole } from "../@types/enum.types";
 import { ImageSchema } from "./image.model";
 
 export interface IUser extends Document {
-  name: string;
+  fullName: string;
   email: string;
   password: string;
   phone: string;
@@ -22,7 +22,7 @@ export interface IUser extends Document {
 
 const userSchema = new mongoose.Schema<IUser>(
   {
-    name: {
+    fullName: {
       type: String,
       required: true,
       trim: true,

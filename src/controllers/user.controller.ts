@@ -15,7 +15,7 @@ import { sendResetPasswordEmail } from "../utils/email.util";
 export const register = cathAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const {
-      name,
+      fullName,
       email,
       password,
       phone,
@@ -27,7 +27,7 @@ export const register = cathAsync(
 
     const file = req.file;
 
-    if (!name) throw new AppError("Name is required", 400);
+    if (!fullName) throw new AppError("Full name is required", 400);
     if (!email) throw new AppError("Email is required", 400);
     if (!password) throw new AppError("Password is required", 400);
     if (!phone) throw new AppError("Phone number is required", 400);
@@ -46,7 +46,7 @@ export const register = cathAsync(
       : null;
 
     const newUser = new User({
-      name,
+      fullName,
       email: email.toLowerCase(),
       password: hashedPassword,
       phone,
@@ -71,7 +71,7 @@ export const register = cathAsync(
       message: "User registered successfully!",
       data: {
         _id: newUser._id,
-        name: newUser.name,
+        name: newUser.fullName,
         email: newUser.email,
         phone: newUser.phone,
         bloodGroup: newUser.bloodGroup,
@@ -203,13 +203,13 @@ export const getMe = cathAsync(
 // update profile
 export const updateProfile = cathAsync(
   async (req : AuthRequest, res : Response, next : NextFunction) => {
-    const { name, phone, district } = req.body;
+    const { fullName, phone, district } = req.body;
     const file = req.file;
 
     const user = await User.findById(req.user?._id);
     if(!user) throw new AppError("User not found", 404);
 
-    if(name) user.name = name;
+    if(fullName) user.fullName = fullName;
     if(phone) user.phone = phone;
     if(district) user.district = district;
 

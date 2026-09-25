@@ -2,6 +2,9 @@ import app from "./app.js";
 import "dotenv/config";
 import { connectDatabase } from "./config/db.config";
 import ENV_CONFIG from "./config/env.config.js";
+import dns from "dns";
+
+dns.setServers(["8.8.8.8", "8.8.4.4"]); 
 
 // const PORT = 8003;
 // const DB_URI = "mongodb://localhost:27017/BLOODCONNECT";

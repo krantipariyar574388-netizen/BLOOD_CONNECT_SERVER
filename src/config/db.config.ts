@@ -10,6 +10,7 @@ export const connectDatabase = (DB_URI :string) => {
         console.log("Database connected!");
     })
     .catch((error) => {
-        console.log("Database connection error");
-    });
+    console.log("Database connection error:", error.message);
+    console.error(error);
+});
 };
