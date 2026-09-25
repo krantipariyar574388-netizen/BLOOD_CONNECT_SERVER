@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import notificationRoutes from './routes/notification.route';
 import cors from 'cors';
+import statsRoutes from './routes/stats.route';
 
 const app = express();
 
@@ -14,10 +15,7 @@ dotenv.config();
 
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors({
-    origin : "*",
-}),
-);
+app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 
 app.get("/",(req : Request, res : Response) => {
     res.status(200).json({
@@ -31,6 +29,7 @@ app.get("/",(req : Request, res : Response) => {
 app.use('/bloodrequests', bloodRequestRoutes);
 app.use('/users', userRoutes);
 app.use('/notifications', notificationRoutes);
+app.use('/stats', statsRoutes);
 
 app.use((req, res, next) => {
     const message = `Can not ${req.method} on ${req.path}`;
