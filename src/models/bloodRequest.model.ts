@@ -10,6 +10,7 @@ export interface IBloodRequest extends Document {
     hospital : string;
     district  : string;
     phone : string;
+    requiredDate : Date;
     urgency: RequestUrgency;
     status : RequestStatus;
     medicalDocument: {
@@ -51,6 +52,10 @@ const bloodRequestSchema = new mongoose.Schema<IBloodRequest>({
     phone: {
         type: String,
         required: true
+    },
+    requiredDate: {
+        type: Date,
+        required: true,
     },
     urgency: {
       type: String,

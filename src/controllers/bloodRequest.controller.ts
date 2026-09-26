@@ -141,7 +141,7 @@ export const getAllBloodRequests = cathAsync(
     const totalCount = await BloodRequest.countDocuments(filter);
 
     const requests = await BloodRequest.find(filter)
-      .populate("requester", "name email phone")
+      .populate("requester", "fullName email phone")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -166,7 +166,7 @@ export const getBloodRequestById = cathAsync(
 
     const request = await BloodRequest.findById(id).populate(
       "requester",
-      "name email phone"
+      "fullName email phone"
     );
 
     if (!request) {
@@ -265,6 +265,32 @@ export const fulfillBloodRequest = cathAsync(
       throw new AppError("You cannot fulfill your own blood request", 400);
     }
 
+    const donor = await User.findById(donorId);
+    if (!donor) {
+      throw new AppError("Donor not found", 404);
+    }
+
+    if (!donor.isAvailable) {
+      throw new AppError(
+        "You have marked yourself as unavailable. Please update your availability to donate.",
+        400
+      );
+    }
+
+    if (donor.lastDonationDate) {
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+      if (donor.lastDonationDate > ninetyDaysAgo) {
+        const nextEligibleDate = new Date(donor.lastDonationDate);
+        nextEligibleDate.setDate(nextEligibleDate.getDate() + 90);
+        throw new AppError(
+          `You can donate again after ${nextEligibleDate.toLocaleDateString()} (90 days required between donations).`,
+          400
+        );
+      }
+    }
+
     request.status = RequestStatus.FULFILLED;
     request.fulfilledBy = donorId as any;
     await request.save();
@@ -297,7 +323,7 @@ export const getMyRequests = cathAsync(
     if(!requesterId) throw new AppError("Unauthorized", 401);
 
     const requests = await BloodRequest.find({ requester : requesterId })
-    .populate("fulfilledBy", "name email phone")
+    .populate("fulfilledBy", "fullName email phone")
     .sort({ createdAt : -1 });
 
     sendResponse(res, {
