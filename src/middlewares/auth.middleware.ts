@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { UserRole } from "../@types/enum.types";
 import { AppError } from "../utils/customError.util";
 import { verifyToken } from "../utils/jwt.util";
+import { User } from "../models/user.model";
 
 export interface AuthRequest extends Request {
     user?: {
@@ -12,7 +13,7 @@ export interface AuthRequest extends Request {
 }
 
 export const authentication = (roles?: UserRole[]) => {
-    return (req: AuthRequest, res: Response, next: NextFunction) => {
+    return async (req: AuthRequest, res: Response, next: NextFunction) => {
         try {
             const cookies = req.cookies;
             const access_token = cookies?.["access_token"];
@@ -29,6 +30,14 @@ export const authentication = (roles?: UserRole[]) => {
 
             if (roles && !roles.includes(decoded_data.role)) {
                 throw new AppError("Forbidden. You cannot access this resource!!", 403);
+            }
+
+            const user = await User.findById(decoded_data._id).select("isBanned");
+            if (!user) {
+                throw new AppError("Unauthorized. User not found!!", 401);
+            }
+            if (user.isBanned) {
+                throw new AppError("Your account has been suspended. Please contact support.", 403);
             }
 
             req.user = {

@@ -103,6 +103,10 @@ export const login = cathAsync(
     const isPasswordMatched = await comparePassword(password, user.password);
     if (!isPasswordMatched) throw new AppError("Invalid credentials", 400);
 
+    if (user.isBanned) {
+      throw new AppError("Your account has been suspended. Please contact support.", 403);
+    }
+
     const access_token = generateJwtToken({
       _id: user._id,
       email: user.email,
