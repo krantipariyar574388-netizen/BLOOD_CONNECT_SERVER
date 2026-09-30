@@ -12,7 +12,7 @@ export const getMyNotifications = cathAsync(
 
         const notifications = await Notification.find({ recipient : userId })
         .populate("bloodRequest", "patient hospital bloodGroup status")
-        .sort({ createAt : -1 });
+        .sort({ createdAt : -1 });
 
         const unreadCount = notifications.filter((n) => !n.isRead).length;
 

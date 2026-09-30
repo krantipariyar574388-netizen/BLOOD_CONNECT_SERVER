@@ -16,6 +16,7 @@ export interface IUser extends Document {
   };
   lastDonationDate?: Date | null;
   isAvailable: boolean;
+  isBanned: boolean;
   resetPasswordToken?: string | null;
   resetPasswordExpiry?: Date | null;
 }
@@ -67,6 +68,10 @@ const userSchema = new mongoose.Schema<IUser>(
     isAvailable: {
       type: Boolean,
       default: true,
+    },
+    isBanned: {
+      type: Boolean,
+      default: false,
     },
     resetPasswordToken : {
       type : String,

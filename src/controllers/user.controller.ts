@@ -9,8 +9,13 @@ import { generateJwtToken } from "../utils/jwt.util";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { generateResetToken, hashToken } from "../utils/token.util";
 import ENV_CONFIG from "../config/env.config";
-import { getPaginationMetadata, getPeginationParams } from "../utils/pagination.util";
+import {
+  getPaginationMetadata,
+  getPeginationParams,
+} from "../utils/pagination.util";
 import { sendResetPasswordEmail } from "../utils/email.util";
+import { BloodRequest } from "../models/bloodRequest.model";
+import { UserRole, RequestStatus } from "../@types/enum.types";
 
 export const register = cathAsync(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -57,10 +62,10 @@ export const register = cathAsync(
     });
 
     if (file) {
-      const {path, public_id} = await upload(file,"/profile_images");
+      const { path, public_id } = await upload(file, "/profile_images");
       newUser.profile_image = {
-        path : path,
-        public_id : public_id,
+        path: path,
+        public_id: public_id,
       };
     }
 
@@ -82,7 +87,7 @@ export const register = cathAsync(
         isAvailable: newUser.isAvailable,
       },
     });
-  }
+  },
 );
 
 export const login = cathAsync(
@@ -99,9 +104,9 @@ export const login = cathAsync(
     if (!isPasswordMatched) throw new AppError("Invalid credentials", 400);
 
     const access_token = generateJwtToken({
-      _id : user._id,
-      email : user.email,
-      role : user.role,
+      _id: user._id,
+      email: user.email,
+      role: user.role,
     });
 
     // set the token as an httpOnly cookie so auth.middleware can read it
@@ -112,20 +117,20 @@ export const login = cathAsync(
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    const { password : p, __v, ...rest } = user.toObject();
+    const { password: p, __v, ...rest } = user.toObject();
 
     sendResponse(res, {
       statusCode: 200,
       message: "Logged in successfully!",
-      data: {user :rest, access_token},
+      data: { user: rest, access_token },
     });
-  }
+  },
 );
 
 export const getEligibleDonors = cathAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { bloodGroup, district } = req.query;
-    const { currentPage, limit, skip } = getPeginationParams(req.params);
+    const { currentPage, limit, skip } = getPeginationParams(req.query);
 
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
@@ -151,142 +156,143 @@ export const getEligibleDonors = cathAsync(
     const totalCount = await User.countDocuments(filter);
 
     const donors = await User.find(filter)
-    .select("-password")
-    .skip(skip)
-    .limit(limit);
+      .select("-password")
+      .skip(skip)
+      .limit(limit);
 
     sendResponse(res, {
       statusCode: 200,
-      message: donors.length > 0 
-        ? "Eligible donors fetched successfully" 
-        : "No eligible donors found matching your criteria",
+      message:
+        donors.length > 0
+          ? "Eligible donors fetched successfully"
+          : "No eligible donors found matching your criteria",
       data: {
         donors,
-      pagination : getPaginationMetadata(totalCount, limit, currentPage),
-    },
+        pagination: getPaginationMetadata(totalCount, limit, currentPage),
+      },
     });
-  }
+  },
 );
 
 // Logout
 export const logout = cathAsync(
-  async(req : Request, res : Response, next : NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     res.clearCookie("access_token", {
-      httpOnly : true,
-      secure : process.env.NODE_ENV === "production",
-      sameSite : "lax",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
     });
 
     sendResponse(res, {
-      statusCode : 200,
-      message : "Logged out successfully!",
-      data : null,
+      statusCode: 200,
+      message: "Logged out successfully!",
+      data: null,
     });
-  }
+  },
 );
 
 // get current user(me)
 export const getMe = cathAsync(
-  async (req : AuthRequest, res : Response, next : NextFunction) => {
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
     const user = await User.findById(req.user?._id).select("-password");
 
-    if(!user) throw new AppError("User not found", 404);
+    if (!user) throw new AppError("User not found", 404);
 
     sendResponse(res, {
-      statusCode : 200,
-      message : "Current user fetched successfully",
-      data : user,
+      statusCode: 200,
+      message: "Current user fetched successfully",
+      data: user,
     });
-  }
+  },
 );
 
 // update profile
 export const updateProfile = cathAsync(
-  async (req : AuthRequest, res : Response, next : NextFunction) => {
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
     const { fullName, phone, district } = req.body;
     const file = req.file;
 
     const user = await User.findById(req.user?._id);
-    if(!user) throw new AppError("User not found", 404);
+    if (!user) throw new AppError("User not found", 404);
 
-    if(fullName) user.fullName = fullName;
-    if(phone) user.phone = phone;
-    if(district) user.district = district;
+    if (fullName) user.fullName = fullName;
+    if (phone) user.phone = phone;
+    if (district) user.district = district;
 
-    if(file) {
-      if(user.profile_image?.public_id) {
+    if (file) {
+      if (user.profile_image?.public_id) {
         await deleteFileFromCloudinary(user.profile_image.public_id);
       }
-      const {path, public_id} = await upload(file, "/profile_image");
+      const { path, public_id } = await upload(file, "/profile_image");
       user.profile_image = { path, public_id };
     }
     await user.save();
-    
+
     const { password, ...rest } = user.toObject();
 
     sendResponse(res, {
       statusCode: 200,
-      message : "Profile updated successfully!",
-      data : rest,
+      message: "Profile updated successfully!",
+      data: rest,
     });
-  }
+  },
 );
 
 // change password
 export const changePassword = cathAsync(
-  async (req : AuthRequest, res : Response, next : NextFunction) => {
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
     const { oldPassword, newPassword } = req.body;
 
-    if(!oldPassword) throw new AppError("OLD password is required", 400);
-    if(!newPassword) throw new AppError("New Password is Required", 400);
+    if (!oldPassword) throw new AppError("OLD password is required", 400);
+    if (!newPassword) throw new AppError("New Password is Required", 400);
 
     const user = await User.findById(req.user?._id);
-    if(!user) throw new AppError("User not found", 404);
+    if (!user) throw new AppError("User not found", 404);
 
     const isMatched = await comparePassword(oldPassword, user.password);
-    if(!isMatched) throw new AppError("Old password is incorrect", 404);
+    if (!isMatched) throw new AppError("Old password is incorrect", 404);
 
     user.password = await hashPassword(newPassword);
     await user.save();
 
     sendResponse(res, {
-      statusCode : 200,
-      message : "Password changed successfully!",
-      data : null,
+      statusCode: 200,
+      message: "Password changed successfully!",
+      data: null,
     });
-  }
+  },
 );
 
-// toggle availility 
+// toggle availility
 export const toggleAvailability = cathAsync(
-  async (req : AuthRequest, res : Response, next : NextFunction) => {
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
     const user = await User.findById(req.user?._id);
-    if(!user) throw new AppError("User not found", 404);
+    if (!user) throw new AppError("User not found", 404);
 
     user.isAvailable = !user.isAvailable;
     await user.save();
 
     sendResponse(res, {
-      statusCode : 200,
-      message : `You are now marked as ${user.isAvailable ? "available" : "unavailable"}!`,
-      data : { isAvailable : user.isAvailable },
+      statusCode: 200,
+      message: `You are now marked as ${user.isAvailable ? "available" : "unavailable"}!`,
+      data: { isAvailable: user.isAvailable },
     });
-  }
+  },
 );
 
 //forgot password (email pathaune)
 export const forgotPassword = cathAsync(
-  async (req : Request, res : Response, next : NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     const { email } = req.body;
-    if (!email) throw new AppError("Email is required",404);
+    if (!email) throw new AppError("Email is required", 404);
 
-    const user = await User.findOne({ email : email.toLowerCase() });
+    const user = await User.findOne({ email: email.toLowerCase() });
 
-    if(!user) {
+    if (!user) {
       return sendResponse(res, {
-        statusCode : 200,
-        message : "If that email exists, a reset link has been sent.",
-        data : null,
+        statusCode: 200,
+        message: "If that email exists, a reset link has been sent.",
+        data: null,
       });
     }
 
@@ -300,13 +306,12 @@ export const forgotPassword = cathAsync(
     const resetUrl = `${ENV_CONFIG.FRONTEND_URL}/reset-password/${rawToken}`;
     await sendResetPasswordEmail(user.email, resetUrl);
 
-
     sendResponse(res, {
-      statusCode : 200,
-      message : "if that email exists, a reset link has been sent.",
-      data : null,
+      statusCode: 200,
+      message: "if that email exists, a reset link has been sent.",
+      data: null,
     });
-  }
+  },
 );
 
 // reset password (token verify garera password change garne)
@@ -315,7 +320,7 @@ export const resetPassword = cathAsync(
     const { token } = req.params;
     const { newPassword } = req.body;
 
-    if(!token || typeof token !== "string") {
+    if (!token || typeof token !== "string") {
       throw new AppError("Reset token is required", 400);
     }
 
@@ -342,5 +347,130 @@ export const resetPassword = cathAsync(
       message: "Password reset successfully! You can now log in.",
       data: null,
     });
-  }
+  },
+);
+
+export const getAllUsers = cathAsync(
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    const { role, query } = req.query;
+    const { currentPage, limit, skip } = getPeginationParams(req.query);
+
+    let filter: any = {};
+
+    if (role) {
+      filter.role = role;
+    }
+
+    if (query) {
+      filter.$or = [
+        { fullName: new RegExp(String(query).trim(), "i") },
+        { email: new RegExp(String(query).trim(), "i") },
+      ];
+    }
+
+    const totalCount = await User.countDocuments(filter);
+
+    const users = await User.find(filter)
+      .select("-password")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    sendResponse(res, {
+      statusCode: 200,
+      message: "Users fetched successfully",
+      data: {
+        users,
+        pagination: getPaginationMetadata(totalCount, limit, currentPage),
+      },
+    });
+  },
+);
+
+export const toggleUserBan = cathAsync(
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+
+    const user = await User.findById(id);
+    if (!user) throw new AppError("User not found", 404);
+
+    if (user.role === "admin") {
+      throw new AppError("Cannot ban another admin", 400);
+    }
+
+    user.isBanned = !user.isBanned;
+    await user.save();
+
+    sendResponse(res, {
+      statusCode: 200,
+      message: `User has been ${user.isBanned ? "banned" : "unbanned"}`,
+      data: { isBanned: user.isBanned },
+    });
+  },
+);
+
+export const deleteUser = cathAsync(
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+
+    const user = await User.findById(id);
+    if (!user) throw new AppError("User not found", 404);
+
+    if (user.role === "admin") {
+      throw new AppError("Cannot delete another admin", 400);
+    }
+
+    await user.deleteOne();
+
+    sendResponse(res, {
+      statusCode: 200,
+      message: "User deleted successfully",
+      data: null,
+    });
+  },
+);
+
+export const getAdminStats = cathAsync(
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    const [
+      totalUsers,
+      totalDonors,
+      totalRequesters,
+      pendingRequests,
+      fulfilledRequests,
+    ] = await Promise.all([
+      User.countDocuments({ role: { $ne: UserRole.ADMIN } }),
+      User.countDocuments({ role: UserRole.DONOR }),
+      User.countDocuments({ role: UserRole.REQUESTER }),
+      BloodRequest.countDocuments({ status: RequestStatus.PENDING }),
+      BloodRequest.countDocuments({ status: RequestStatus.FULFILLED }),
+    ]);
+
+    sendResponse(res, {
+      statusCode: 200,
+      message: "Admin stats fetched successfully",
+      data: {
+        totalUsers,
+        totalDonors,
+        totalRequesters,
+        pendingRequests,
+        fulfilledRequests,
+      },
+    });
+  },
+);
+
+export const getUserById = cathAsync(
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+
+    const user = await User.findById(id).select("-password");
+    if (!user) throw new AppError("User not found", 404);
+
+    sendResponse(res, {
+      statusCode: 200,
+      message: "User details fetched successfully",
+      data: user,
+    });
+  },
 );
